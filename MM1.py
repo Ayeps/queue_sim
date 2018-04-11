@@ -14,7 +14,7 @@ SERVICE_TIME = 8.0
 NUM_MACHINES = 4
 QUEUE_SIZE = 50
 
-SIM_TIME = 100000
+SIM_TIME = 1000
 
 # **********************************************************************************************************************
 # Packet arrival
@@ -89,13 +89,14 @@ def n_independent_queues():
     # setup and perform the simulation
     # ********************************
 
-    env = simpy.Environment()
+    #env = simpy.Environment()
 
 
     servers = []
     arrivals = []
     for _ in range(NUM_MACHINES):
-        packet_arrival = PacketArrival(env, INTER_ARRIVAL*NUM_MACHINES)
+        env = simpy.Environment()
+        packet_arrival = PacketArrival(env, NUM_MACHINES*INTER_ARRIVAL )
         server_farm = Service(env, 1, SERVICE_TIME)
         arrivals.append(packet_arrival)
         servers.append(server_farm)
@@ -103,15 +104,15 @@ def n_independent_queues():
         # start the arrival process
         env.process(packet_arrival.arrival_process(server_farm))
 
-    # simulate until SIM_TIME
-    env.run(SIM_TIME)
+        # simulate until SIM_TIME
+        env.run(SIM_TIME)
 
-    #compute the average
-    m = 0
-    for s in servers:
-       m += np.mean(s.re_times)
-    m /= NUM_MACHINES
-    print("mean response time = " + repr(m))
+   ##compute the average
+   #m = 0
+   #for s in servers:
+   #   m += np.mean(s.re_times)
+   #m /= NUM_MACHINES
+        print("mean response time = " + repr(np.mean(server_farm.re_times)))
 
 
     supertot = 0
@@ -262,8 +263,13 @@ if __name__ == '__main__':
 
     random.seed(RANDOM_SEED)
 
+    print("M/M/n")
     n_services()
+    print()
+    print("n x M/M/1")
     n_independent_queues()
+    print()
+    print("M/M/1 high speed")
     fast_service()
 
-    plt.show()
+    #plt.show()
