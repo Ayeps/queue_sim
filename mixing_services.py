@@ -146,12 +146,12 @@ def mixed_queues_losses_avoidance():
     probs = []
     env = simpy.Environment()
     # create a fast server
-    server_farm = Service(env, 1, SERVICE_TIME/NUM_MACHINES, QUEUE_SIZE)
+    server_farm = Service(env, 1, SERVICE_TIME/NUM_MACHINES, QUEUE_SIZE, SIM_TIME)
     probs.append(NUM_MACHINES)
     servers.append(server_farm)
     #create NUM_MACHINES slow servers
     for i in range(NUM_MACHINES):
-        server_farm = Service(env, 1, SERVICE_TIME, QUEUE_SIZE)
+        server_farm = Service(env, 1, SERVICE_TIME, QUEUE_SIZE, SIM_TIME)
         servers.append(server_farm)
         probs.append(1)
 
