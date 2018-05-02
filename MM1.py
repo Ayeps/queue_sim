@@ -3,19 +3,22 @@ import numpy as np
 import simpy
 import random
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 from netsimutils import *
+from scipy.interpolate import spline
 
 
 # **********************************************************************************************************************
 # Constants
 # **********************************************************************************************************************
-RANDOM_SEED = 42
-INTER_ARRIVAL = 2.0
-SERVICE_TIME = 8.0
+
+RANDOM_SEED = 45
+INTER_ARRIVAL = 2
+SERVICE_TIME = 9
 NUM_MACHINES = 4
 QUEUE_SIZE = 50
 
-SIM_TIME = 1000
+SIM_TIME = 10000
 
 def n_independent_queues():
     # ********************************
@@ -24,13 +27,12 @@ def n_independent_queues():
 
     #env = simpy.Environment()
 
-
     servers = []
     arrivals = []
     for _ in range(NUM_MACHINES):
         env = simpy.Environment()
         packet_arrival = PacketArrival(env, NUM_MACHINES*INTER_ARRIVAL )
-        server_farm = Service(env, 1, SERVICE_TIME, QUEUE_SIZE)
+        server_farm = Service(env, 1, SERVICE_TIME, QUEUE_SIZE, SIM_TIME)
         arrivals.append(packet_arrival)
         servers.append(server_farm)
 
@@ -39,14 +41,7 @@ def n_independent_queues():
 
         # simulate until SIM_TIME
         env.run(SIM_TIME)
-
-   ##compute the average
-   #m = 0
-   #for s in servers:
-   #   m += np.mean(s.re_times)
-   #m /= NUM_MACHINES
         print("mean response time = " + repr(np.mean(server_farm.re_times)))
-
 
     supertot = 0
     superlost = 0
@@ -59,41 +54,126 @@ def n_independent_queues():
         print(repr(tot) + " total packets for queue n." + repr(i))
         print(repr(server_farm.lost) + " packets lost for queue n." + repr(i) +
               "(" + repr(server_farm.lost/tot * 100) + "%)")    
-        #plot
-        fig, (series, pdf, cdf) = plt.subplots(3, 1)
-        fig.title = "server "+ repr(i)
-        
-        series.plot(packet_arrival.ia_times)
-        series.set_xlabel("Sample")
-        series.set_ylabel("Inter-arrival")
+        # # plot
+        # plt.subplot(311)
+        # plt.plot(packet_arrival.ia_times)
+        # plt.xlabel("Sample")
+        # plt.ylabel("Inter-arrival")
+        #
+        # plt.subplot(312)
+        # plt.hist(packet_arrival.ia_times, bins=100, normed=True)
+        # plt.xlabel("Time")
+        # plt.ylabel("Density")
+        #
+        # plt.subplot(313)
+        # plt.hist(packet_arrival.ia_times, bins=100, cumulative=True, normed=True)
+        # plt.xlabel("Time")
+        # plt.ylabel("P(Arrival time <= x)")
+        #
+        # plt.suptitle("server " + repr(i))
+        # plt.subplots_adjust(hspace=0.6)
+        # plt.show()
 
-        pdf.hist(packet_arrival.ia_times, bins=100, normed=True)
-        pdf.set_xlabel("Time")
-        pdf.set_ylabel("Density")
-        pdf.set_xbound(0, 15)
-
-        cdf.hist(packet_arrival.ia_times, bins=100, cumulative=True, normed=True)
-        cdf.set_xlabel("Time")
-        cdf.set_ylabel("P(Arrival time <= x)")
-        cdf.set_ybound(0, 1)
-        cdf.set_xbound(0, 15)
+    super_dynamic_QS = []
+    super_lost_s = []
+    for i in range(len(servers)):
+        super_dynamic_QS.append(servers[i].dynamic_QS)
+        super_lost_s.append(servers[i].lost_s)
         
     print(repr(supertot) + " total packets")
     print(repr(superlost) + " packets lost (" + repr(superlost/supertot * 100) + "%)")    
 
-    #plot
-    fig, (pdf, cdf) = plt.subplots(2, 1)
+    ################
+    # PLOT SECTION #
+    ################
+    plt.subplot(3, 4, 1)
+    plt.plot(super_ia_times[0])
+    plt.subplot(3, 4, 2)
+    plt.plot(super_ia_times[1])
+    plt.subplot(3, 4, 3)
+    plt.plot(super_ia_times[2])
+    plt.subplot(3, 4, 4)
+    plt.plot(super_ia_times[3])
 
-    pdf.hist(super_ia_times, bins=100, normed=True)
-    pdf.set_xlabel("Time")
-    pdf.set_ylabel("Density")
-    pdf.set_xbound(0, 15)
+    plt.subplot(3,4,5)
+    plt.hist(super_ia_times[0], bins=100, normed=True)
+    plt.subplot(3,4,6)
+    plt.hist(super_ia_times[1], bins=100, normed=True)
+    plt.subplot(3,4,7)
+    plt.hist(super_ia_times[2], bins=100, normed=True)
+    plt.subplot(3,4,8)
+    plt.hist(super_ia_times[3], bins=100, normed=True)
 
-    cdf.hist(super_ia_times, bins=100, cumulative=True, normed=True)
-    cdf.set_xlabel("Time")
-    cdf.set_ylabel("P(Arrival time <= x)")
-    cdf.set_ybound(0, 1)
-    cdf.set_xbound(0, 15)
+    plt.subplot(3, 4, 9)
+    plt.hist(super_ia_times[0], bins=100, cumulative=True, normed=True)
+    plt.subplot(3, 4, 10)
+    plt.hist(super_ia_times[1], bins=100, cumulative=True, normed=True)
+    plt.subplot(3, 4, 11)
+    plt.hist(super_ia_times[2], bins=100, cumulative=True, normed=True)
+    plt.subplot(3, 4, 12)
+    plt.hist(super_ia_times[3], bins=100, cumulative=True, normed=True)
+    plt.show()
+
+
+    ax=plt.subplot(4,2,1)
+    plt.plot(super_dynamic_QS[0])
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x*2)))
+    plt.ylabel("Packets in queue")
+    plt.title("Queue Size")
+
+    ax = plt.subplot(4,2,2)
+    plt.plot(super_lost_s[0])
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, pos: ('%g') % (y / 50)))
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x * 50)))
+    plt.title("Losses")
+    plt.ylabel("Packets lost")
+    plt.xlabel("Time")
+
+    ax=plt.subplot(4,2,3)
+    plt.plot(super_dynamic_QS[1])
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x*2)))
+    plt.ylabel("Packets in queue")
+    plt.title("Queue Size")
+
+    ax = plt.subplot(4,2,4)
+    plt.plot(super_lost_s[1])
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, pos: ('%g') % (y / 50)))
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x * 50)))
+    plt.title("Losses")
+    plt.ylabel("Packets lost")
+    plt.xlabel("Time")
+
+    ax=plt.subplot(4,2,5)
+    plt.plot(super_dynamic_QS[2])
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x*2)))
+    plt.ylabel("Packets in queue")
+    plt.title("Queue Size")
+
+    ax = plt.subplot(4,2,6)
+    plt.plot(super_lost_s[2])
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, pos: ('%g') % (y / 50)))
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x * 50)))
+    plt.title("Losses")
+    plt.ylabel("Packets lost")
+    plt.xlabel("Time")
+
+    ax=plt.subplot(4,2,7)
+    plt.plot(super_dynamic_QS[3])
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x*2)))
+    plt.ylabel("Packets in queue")
+    plt.title("Queue Size")
+
+    ax = plt.subplot(4,2,8)
+    plt.plot(super_lost_s[3])
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, pos: ('%g') % (y / 50)))
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x * 50)))
+    plt.title("Losses")
+    plt.ylabel("Packets lost")
+    plt.xlabel("Time")
+
+    plt.subplots_adjust(hspace=0.6)
+    plt.suptitle('N Services')
+    plt.show()
 
     
 def n_services():
@@ -107,7 +187,7 @@ def n_services():
     packet_arrival = PacketArrival(env, INTER_ARRIVAL)
 
     # carwash
-    server_farm = Service(env, NUM_MACHINES, SERVICE_TIME, QUEUE_SIZE)
+    server_farm = Service(env, NUM_MACHINES, SERVICE_TIME, QUEUE_SIZE, SIM_TIME)
 
     # start the arrival process
     env.process(packet_arrival.arrival_process(server_farm))
@@ -121,25 +201,50 @@ def n_services():
 
     tot = len(packet_arrival.ia_times)
     print(repr(tot) + " total packets")
-    print(repr(server_farm.lost) + " packets lost (" + repr(server_farm.lost/tot * 100) + "%)")    
-    #plot
-    fig, (series, pdf, cdf) = plt.subplots(3, 1)
+    print(repr(server_farm.lost) + " packets lost (" + repr(server_farm.lost/tot * 100) + "%)")
 
-    series.plot(packet_arrival.ia_times)
-    series.set_xlabel("Sample")
-    series.set_ylabel("Inter-arrival")
+    ################
+    # PLOT SECTION #
+    ################
 
-    pdf.hist(packet_arrival.ia_times, bins=100, normed=True)
-    pdf.set_xlabel("Time")
-    pdf.set_ylabel("Density")
-    pdf.set_xbound(0, 15)
+    plt.subplot(311)
+    plt.plot(packet_arrival.ia_times)
+    plt.xlabel("Sample")
+    plt.ylabel("Inter-arrival")
 
-    cdf.hist(packet_arrival.ia_times, bins=100, cumulative=True, normed=True)
-    cdf.set_xlabel("Time")
-    cdf.set_ylabel("P(Arrival time <= x)")
-    cdf.set_ybound(0, 1)
-    cdf.set_xbound(0, 15)
+    plt.subplot(312)
+    plt.hist(packet_arrival.ia_times, bins=100, normed=True)
+    plt.xlabel("Time")
+    plt.ylabel("Density")
 
+    plt.subplot(313)
+    plt.hist(packet_arrival.ia_times, bins=100, cumulative=True, normed=True)
+    plt.xlabel("Time")
+    plt.ylabel("P(Arrival time <= x)")
+
+    plt.subplots_adjust(hspace=0.6)
+    plt.suptitle('N Services')
+    plt.show()
+
+    # PLOT LOSSES
+
+    ax=plt.subplot(211)
+    plt.plot(server_farm.dynamic_QS)
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x*2)))
+    plt.ylabel("Packets in queue")
+    plt.title("Queue Size")
+
+    ax = plt.subplot(212)
+    plt.plot(server_farm.lost_s)
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, pos: ('%g') % (y / 50)))
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x * 50)))
+    plt.title("Losses")
+    plt.ylabel("Packets lost")
+    plt.xlabel("Time")
+
+    plt.subplots_adjust(hspace=0.6)
+    plt.suptitle('N Services')
+    plt.show()
 
 def fast_service():
     # ********************************
@@ -152,7 +257,7 @@ def fast_service():
     packet_arrival = PacketArrival(env, INTER_ARRIVAL)
 
     # carwash
-    server_farm = Service(env, 1, SERVICE_TIME/NUM_MACHINES, QUEUE_SIZE)
+    server_farm = Service(env, 1, SERVICE_TIME/NUM_MACHINES, QUEUE_SIZE, SIM_TIME)
 
     # start the arrival process
     env.process(packet_arrival.arrival_process(server_farm))
@@ -167,24 +272,50 @@ def fast_service():
     tot = len(packet_arrival.ia_times)
     print(repr(tot) + " total packets")
     print(repr(server_farm.lost) + " packets lost (" + repr(server_farm.lost/tot * 100) + "%)")    
-    #plot
-    fig, (series, pdf, cdf) = plt.subplots(3, 1)
 
-    series.plot(packet_arrival.ia_times)
-    series.set_xlabel("Sample")
-    series.set_ylabel("Inter-arrival")
+    ################
+    # PLOT SECTION #
+    ################
 
-    pdf.hist(packet_arrival.ia_times, bins=100, normed=True)
-    pdf.set_xlabel("Time")
-    pdf.set_ylabel("Density")
-    pdf.set_xbound(0, 15)
+    plt.subplot(311)
+    plt.plot(packet_arrival.ia_times)
+    plt.xlabel("Sample")
+    plt.ylabel("Inter-arrival")
 
-    cdf.hist(packet_arrival.ia_times, bins=100, cumulative=True, normed=True)
-    cdf.set_xlabel("Time")
-    cdf.set_ylabel("P(Arrival time <= x)")
-    cdf.set_ybound(0, 1)
-    cdf.set_xbound(0, 15)
+    plt.subplot(312)
+    plt.hist(packet_arrival.ia_times, bins=100, normed=True)
+    plt.xlabel("Time")
+    plt.ylabel("Density")
 
+    plt.subplot(313)
+    plt.hist(packet_arrival.ia_times, bins=100, cumulative=True, normed=True)
+    plt.xlabel("Time")
+    plt.ylabel("P(Arrival time <= x)")
+
+    plt.subplots_adjust(hspace=0.6)
+
+    plt.suptitle('Fast Serivce')
+    plt.show()
+
+    # PLOT LOSSES
+
+    ax=plt.subplot(211)
+    plt.plot(server_farm.dynamic_QS)
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x*2)))
+    plt.ylabel("Packets in queue")
+    plt.title("Queue Size")
+
+    ax = plt.subplot(212)
+    plt.plot(server_farm.lost_s)
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, pos: ('%g') % (y / 50)))
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ('%g') % (x * 50)))
+    plt.title("Losses")
+    plt.ylabel("Packets lost")
+    plt.xlabel("Time")
+
+    plt.subplots_adjust(hspace=0.6)
+    plt.suptitle('Fast Service')
+    plt.show()
     
     
 
@@ -196,6 +327,7 @@ if __name__ == '__main__':
 
     random.seed(RANDOM_SEED)
 
+    print()
     print("M/M/n")
     n_services()
     print()
@@ -204,5 +336,3 @@ if __name__ == '__main__':
     print()
     print("M/M/1 high speed")
     fast_service()
-
-    #plt.show()

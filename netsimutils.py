@@ -39,13 +39,17 @@ class Service(object):
 (Segue il pacchetto dall'inserimento in coda fino alla fine del servizio)
 
     """
-    def __init__(self, environment, n_servers, s_time, QUEUE_SIZE):
+    def __init__(self, environment, n_servers, s_time, QUEUE_SIZE, SIM_TIME):
         self.environment = environment
         self.servers = simpy.Resource(environment, n_servers)
         self.s_time = s_time
         self.qsize = 0
         self.lost = 0
         self.re_times = []
+        self.dynamic_QS = []
+        self.dynamic_LOSS = []
+        self.arrived_s = [0]*SIM_TIME
+        self.lost_s = [0]*int(SIM_TIME/50)
         self.qsize_limit = QUEUE_SIZE
 
         
@@ -54,14 +58,20 @@ class Service(object):
         if self.qsize == self.qsize_limit:
             #print("Packet lost at %f" % env.now )
             self.lost += 1
+            self.dynamic_QS.append(self.qsize)
+            self.dynamic_LOSS.append(self.lost)
+            self.arrived_s[int(self.environment.now)]+=1
+            self.lost_s[int(int(self.environment.now)/50)] += 1
         else:
             self.qsize += 1
             t0 = self.environment.now
+            self.dynamic_QS.append(self.qsize)
+            self.dynamic_LOSS.append(self.lost)
+            self.arrived_s[int(self.environment.now)] += 1
             #print("Packet arrived in queue at %f" % env.now)
             with self.servers.request() as req:
                 yield req
-
-                service_time = random.expovariate(1.0/self.s_time)
+                service_time = random.expovariate(lambd=1.0/self.s_time)
                 yield self.environment.timeout(service_time)
                 #print("Packet left the server at %f" % env.now)
                 t1 = self.environment.now
