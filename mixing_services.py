@@ -158,6 +158,7 @@ def mixed_queues_losses_avoidance():
     p = PacketArrivalMod(env, INTER_ARRIVAL)
     env.process(p.arrival_process(servers, probs))
     # simulate until SIM_TIME
+    print("Running simulation")
     env.run(SIM_TIME)
 
     #compute the average
@@ -179,6 +180,7 @@ def mixed_queues_losses_avoidance():
         print(repr(servers[i].lost) + " packets lost for queue n." + repr(i) +
               "(" + repr(servers[i].lost/tot * 100) + "%)")    
         #plot
+        print("First plot")
         fig, (series, pdf, cdf) = plt.subplots(3, 1)
         fig.title = "server "+ repr(i)
         
